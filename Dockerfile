@@ -1,25 +1,35 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
+# syntax=docker/dockerfile:1.7
+
+FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
 WORKDIR /src
 
+COPY NuGet.config global.json Directory.Build.props Directory.Packages.props ./
 COPY GitlabMCPSharp.csproj ./
 RUN dotnet restore GitlabMCPSharp.csproj
 
-COPY . ./
+COPY . .
 RUN dotnet publish GitlabMCPSharp.csproj \
     -c Release \
     --no-restore \
-    --self-contained false \
-    -o /app/publish
+    -o /app/publish \
+    /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble AS runtime
 WORKDIR /app
 
-RUN addgroup -S gitlabmcp && adduser -S gitlabmcp -G gitlabmcp
+ENV DOTNET_ENVIRONMENT=Production \
+    ASPNETCORE_ENVIRONMENT=Production \
+    DOTNET_RUNNING_IN_CONTAINER=true \
+    GITLABMCP_Server__Host=0.0.0.0 \
+    GITLABMCP_Server__Port=5702 \
+    GITLABMCP_Server__Path=/mcp \
+    GITLABMCP_Gitlab__ReadOnly=true
 
-COPY --from=build /app/publish ./
-RUN mkdir -p /app/logs && chown -R gitlabmcp:gitlabmcp /app
+RUN mkdir -p /app/logs && chown -R $APP_UID:0 /app
+COPY --from=build --chown=$APP_UID:0 /app/publish ./
 
-USER gitlabmcp
-EXPOSE 5100
+USER $APP_UID
+EXPOSE 5702
+VOLUME ["/app/logs"]
 
 ENTRYPOINT ["dotnet", "GitlabMCPSharp.dll"]

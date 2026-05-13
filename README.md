@@ -33,7 +33,7 @@ Configure via `appsettings.json` or environment variables (env wins; use `GITLAB
 | `Gitlab:EnableIssues` / `EnableMergeRequests` / `EnableRepository` / `EnablePipelines` / `EnableReleases` / `EnableGroups` / `EnableSnippets` | `true` | Per-feature tool toggles |
 | `Gitlab:AcceptInvalidCertificates` | `false` | Accept self-signed TLS certs (self-hosted only) |
 | `Server:Host` | `localhost` | Host to bind |
-| `Server:Port` | `5100` | HTTP port |
+| `Server:Port` | `5702` | HTTP port |
 | `Server:Path` | `/mcp` | MCP endpoint path |
 | `Server:WindowsServiceName` | `GitlabMCPSharp` | Service name when running under SCM |
 
@@ -43,14 +43,14 @@ Configure via `appsettings.json` or environment variables (env wins; use `GITLAB
 dotnet run
 ```
 
-Then point your MCP client at `http://localhost:5100/mcp`.
+Then point your MCP client at `http://localhost:5702/mcp`.
 
 ### Docker
 
 Tagged releases publish a multi-architecture image for `linux/amd64` and `linux/arm64` to GitHub Container Registry:
 
 ```sh
-docker run --rm -p 5100:5100 \
+docker run --rm -p 5702:5702 \
   -e GITLABMCP_Gitlab__PersonalAccessToken=your-token \
   ghcr.io/OWNER/REPOSITORY:latest
 ```
@@ -60,7 +60,7 @@ Version tags such as `v1.2.3` also publish image tags like `v1.2.3`, `1.2.3`, an
 ### Claude Code
 
 ```sh
-claude mcp add --transport http gitlab http://localhost:5100/mcp
+claude mcp add --transport http gitlab http://localhost:5702/mcp
 ```
 
 ## Running as a Windows Service
