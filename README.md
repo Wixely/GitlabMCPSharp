@@ -45,6 +45,18 @@ dotnet run
 
 Then point your MCP client at `http://localhost:5100/mcp`.
 
+### Docker
+
+Tagged releases publish a multi-architecture image for `linux/amd64` and `linux/arm64` to GitHub Container Registry:
+
+```sh
+docker run --rm -p 5100:5100 \
+  -e GITLABMCP_Gitlab__PersonalAccessToken=your-token \
+  ghcr.io/OWNER/REPOSITORY:latest
+```
+
+Version tags such as `v1.2.3` also publish image tags like `v1.2.3`, `1.2.3`, and `1.2`.
+
 ### Claude Code
 
 ```sh
