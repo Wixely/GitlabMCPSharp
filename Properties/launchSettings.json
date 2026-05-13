@@ -4,7 +4,7 @@
     "GitlabMCPSharp": {
       "commandName": "Project",
       "dotnetRunMessages": true,
-      "applicationUrl": "http://localhost:5100",
+      "applicationUrl": "http://localhost:5702",
       "environmentVariables": {
         "DOTNET_ENVIRONMENT": "Development",
         "ASPNETCORE_ENVIRONMENT": "Development",
