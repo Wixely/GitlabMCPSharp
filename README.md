@@ -36,6 +36,9 @@ Configure via `appsettings.json` or environment variables (env wins; use `GITLAB
 | `Server:Port` | `5702` | HTTP port |
 | `Server:Path` | `/mcp` | MCP endpoint path |
 | `Server:WindowsServiceName` | `GitlabMCPSharp` | Service name when running under SCM |
+| `Server:Password` | blank | Optional MCP endpoint password; blank disables password auth |
+
+When `Server:Password` is set, MCP requests must provide the password as `Authorization: Bearer <password>`, the Basic auth password, or `X-MCP-Password`.
 
 ## Running
 
