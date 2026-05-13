@@ -23,6 +23,7 @@ ENV DOTNET_ENVIRONMENT=Production \
     GITLABMCP_Server__Host=0.0.0.0 \
     GITLABMCP_Server__Port=5702 \
     GITLABMCP_Server__Path=/mcp \
+    GITLABMCP_Server__Password= \
     GITLABMCP_Gitlab__ReadOnly=true
 
 RUN mkdir -p /app/logs && chown -R $APP_UID:0 /app
