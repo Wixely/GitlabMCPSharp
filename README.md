@@ -1,19 +1,19 @@
 # GitlabMCPSharp
 
-A standalone C# **MCP (Model Context Protocol) server** for **GitLab** (gitlab.com and self-hosted). Speaks Claude Code style MCP commands over **HTTP streaming**.
+A standalone C# **MCP (Model Context Protocol) server** for **GitLab** (gitlab.com and self-hosted) over Streamable HTTP.
 
 ## Features
 
-- HTTP streaming MCP server (Streamable HTTP transport, compatible with Claude Code).
-- **Read-only mode by default** — safe to attach to agents without risk of mutating projects, issues, MRs, or releases.
+- HTTP MCP server using the Streamable HTTP transport.
+- **Read-only mode by default** — write/delete tools stay disabled until explicitly enabled.
 - Project / group allow/deny lists and per-feature toggles (issues / merge requests / repository / pipelines / releases / groups / snippets).
-- Configuration via `appsettings.json`, environment variables, or command line.
+- Configuration via `GitlabMCPSharp.json`, environment variables, or command line.
 - Serilog logging to console and rolling files (daily + 50 MB rollover, 14-file retention).
 - Runs as a console app or as a Windows Service.
 
 ## Configuration
 
-Configure via `appsettings.json` or environment variables (env wins; use `GITLABMCP_` prefix or standard `__` separator).
+Configure via `GitlabMCPSharp.json` or environment variables. Environment variables win over JSON; in Docker, use the `GITLABMCP_` prefix and `__` for nested keys.
 
 | Setting | Default | Description |
 | --- | --- | --- |
@@ -40,6 +40,8 @@ Configure via `appsettings.json` or environment variables (env wins; use `GITLAB
 
 When `Server:Password` is set, MCP requests must provide the password as `Authorization: Bearer <password>`, the Basic auth password, or `X-MCP-Password`.
 
+Arrays use numeric indexes, for example `GITLABMCP_Gitlab__AllowedProjects__0=group/project`. Booleans use `true` or `false`.
+
 ## Running
 
 ```sh
@@ -54,17 +56,14 @@ Tagged releases publish a multi-architecture image for `linux/amd64` and `linux/
 
 ```sh
 docker run --rm -p 5702:5702 \
+  -e GITLABMCP_Gitlab__ApiBaseUrl=https://gitlab.example.com \
   -e GITLABMCP_Gitlab__PersonalAccessToken=your-token \
-  ghcr.io/OWNER/REPOSITORY:latest
+  -e GITLABMCP_Gitlab__AllowedProjects__0=group/project \
+  -e GITLABMCP_Server__Password=change-me \
+  ghcr.io/wixely/gitlabmcpsharp:latest
 ```
 
-Version tags such as `v1.2.3` also publish image tags like `v1.2.3`, `1.2.3`, and `1.2`.
-
-### Claude Code
-
-```sh
-claude mcp add --transport http gitlab http://localhost:5702/mcp
-```
+Version tags such as `v1.2.3` also publish image tags like `v1.2.3`, `1.2.3`, and `1.2`. Read-only mode is on by default; set `GITLABMCP_Gitlab__ReadOnly=false` only when you want write tools available.
 
 ## Running as a Windows Service
 
@@ -79,11 +78,11 @@ sc.exe create GitlabMCPSharp `
     binPath= "C:\Services\GitlabMCPSharp\GitlabMCPSharp.exe" `
     start= auto `
     DisplayName= "GitLab MCP (C#)"
-sc.exe description GitlabMCPSharp "MCP server bridging Claude Code to GitLab."
+sc.exe description GitlabMCPSharp "MCP server for GitLab."
 sc.exe start GitlabMCPSharp
 ```
 
-Put credentials in `C:\Services\GitlabMCPSharp\appsettings.Local.json` (or set `GITLABMCP_Gitlab__PersonalAccessToken` as a machine-level env var) — never in `appsettings.json`, which is checked in.
+Put credentials in `C:\Services\GitlabMCPSharp\GitlabMCPSharp.Local.json` (or set `GITLABMCP_Gitlab__PersonalAccessToken` as a machine-level env var) — never in `GitlabMCPSharp.json`, which is checked in.
 
 To remove:
 
@@ -96,4 +95,4 @@ Logs land in `<install-dir>\logs\gitlabmcp-*.log`.
 
 ## Read-only mode
 
-Read-only is **on by default**. To enable write tools (e.g. `create_issue`, `trigger_pipeline`), set `Gitlab:ReadOnly=false` (and understand the blast radius — agents can then create/edit issues, MRs, pipelines, etc.).
+Read-only is **on by default**. To enable write tools (e.g. `create_issue`, `trigger_pipeline`), set `Gitlab:ReadOnly=false`.
