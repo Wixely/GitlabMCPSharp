@@ -8,15 +8,21 @@ COPY GitlabMCPSharp.csproj ./
 ARG TARGETARCH
 RUN arch="${TARGETARCH:-amd64}"; \
     if [ "$arch" = "amd64" ]; then arch="x64"; fi; \
-    dotnet restore GitlabMCPSharp.csproj --arch "$arch"
+    rid="linux-$arch"; \
+    dotnet restore GitlabMCPSharp.csproj \
+    -r "$rid" \
+    -p:PublishSingleFile=true \
+    -p:SelfContained=false \
+    -p:EnableCompressionInSingleFile=false
 
 COPY . .
 RUN arch="${TARGETARCH:-amd64}"; \
     if [ "$arch" = "amd64" ]; then arch="x64"; fi; \
+    rid="linux-$arch"; \
     dotnet publish GitlabMCPSharp.csproj \
     -c Release \
     --no-restore \
-    --arch "$arch" \
+    -r "$rid" \
     --self-contained false \
     -o /app/publish \
     -p:PublishSingleFile=true \
