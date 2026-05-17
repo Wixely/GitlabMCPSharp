@@ -10,13 +10,14 @@ namespace GitlabMCPSharp.Tools;
 public static class IssueTools
 {
     [McpServerTool(Name = "list_issues"),
-     Description("List issues in a project.")]
+     Description("List issues in a project. Supports incremental polling via updatedSinceUtc.")]
     public static async Task<string> ListIssues(
         GitlabService svc,
         [Description("Status filter: opened, closed, all (default opened).")] string state = "opened",
         [Description("Optional comma-separated label list to filter by.")] string? labels = null,
         [Description("Optional free-text search applied to title and description.")] string? search = null,
-        [Description("Project namespaced path. Falls back to Gitlab:DefaultProject.")] string? project = null)
+        [Description("Project namespaced path. Falls back to Gitlab:DefaultProject.")] string? project = null,
+        [Description("ISO-8601 UTC timestamp. Only return issues updated after this. Omit for no lower bound.")] string? updatedSinceUtc = null)
     {
         if (!svc.Options.EnableIssues) throw new InvalidOperationException("Issue tools are disabled.");
         var path = svc.ResolveProject(project);
@@ -34,6 +35,11 @@ public static class IssueTools
             Labels = labels,
             Search = search,
         };
+        if (!string.IsNullOrWhiteSpace(updatedSinceUtc))
+        {
+            query.UpdatedAfter = DateTime.Parse(updatedSinceUtc, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal);
+        }
 
         var issues = svc.Client.Issues.Get(p.Id, query)
             .Take(svc.Options.DefaultPageSize * svc.Options.MaxPages)
