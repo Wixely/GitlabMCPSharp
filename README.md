@@ -96,3 +96,14 @@ Logs land in `<install-dir>\logs\gitlabmcp-*.log`.
 ## Read-only mode
 
 Read-only is **on by default**. To enable write tools (e.g. `create_issue`, `trigger_pipeline`), set `Gitlab:ReadOnly=false`.
+
+## Merge request review
+
+Full MR review surface (gated by `Gitlab:EnableMergeRequests`):
+
+- **View**: `list_merge_requests`, `get_merge_request`, `list_merge_request_changes` (per-file diff), `get_merge_request_diff` (concatenated unified diff), `get_merge_request_approval_state`, `list_merge_request_discussions`, `list_merge_request_notes`, `list_merge_request_pipelines`.
+- **Decide**: `approve_merge_request`, `unapprove_merge_request` (per-user, via the raw API endpoint).
+- **Discuss**: `add_merge_request_note` (conversation), `add_merge_request_discussion` (new thread).
+- **Cancel**: `close_merge_request`; `reopen_merge_request` to undo.
+
+All decide/discuss/cancel tools require `Gitlab:ReadOnly=false`.
