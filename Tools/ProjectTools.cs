@@ -9,7 +9,7 @@ namespace GitlabMCPSharp.Tools;
 [McpServerToolType]
 public static class ProjectTools
 {
-    [McpServerTool(Name = "get_project"),
+    [McpServerTool(Name = "gl_get_project"),
      Description("Get details for a single GitLab project by namespaced path (e.g. 'group/project').")]
     public static async Task<string> GetProject(
         GitlabService svc,
@@ -20,7 +20,7 @@ public static class ProjectTools
         return JsonSerializer.Serialize(SummariseProject(p), JsonOpts.Default);
     }
 
-    [McpServerTool(Name = "list_my_projects"),
+    [McpServerTool(Name = "gl_list_my_projects"),
      Description("List projects accessible to the authenticated user.")]
     public static Task<string> ListMyProjects(
         GitlabService svc,
@@ -46,7 +46,7 @@ public static class ProjectTools
         return Task.FromResult(JsonSerializer.Serialize(summary, JsonOpts.Default));
     }
 
-    [McpServerTool(Name = "list_branches"),
+    [McpServerTool(Name = "gl_list_branches"),
      Description("List branches in a project.")]
     public static Task<string> ListBranches(
         GitlabService svc,
@@ -70,7 +70,7 @@ public static class ProjectTools
         return Task.FromResult(JsonSerializer.Serialize(branches, JsonOpts.Default));
     }
 
-    [McpServerTool(Name = "list_tags"),
+    [McpServerTool(Name = "gl_list_tags"),
      Description("List tags in a project.")]
     public static Task<string> ListTags(
         GitlabService svc,
@@ -91,7 +91,7 @@ public static class ProjectTools
         return Task.FromResult(JsonSerializer.Serialize(tags, JsonOpts.Default));
     }
 
-    [McpServerTool(Name = "list_repository_tree"),
+    [McpServerTool(Name = "gl_list_repository_tree"),
      Description("List entries (files and folders) in a project's repository tree at a given path.")]
     public static async Task<string> ListRepositoryTree(
         GitlabService svc,
@@ -118,7 +118,7 @@ public static class ProjectTools
         return JsonSerializer.Serialize(entries, JsonOpts.Default);
     }
 
-    [McpServerTool(Name = "get_file_contents"),
+    [McpServerTool(Name = "gl_get_file_contents"),
      Description("Get file contents at a path on a given ref. Decodes base64 content for convenience.")]
     public static async Task<string> GetFileContents(
         GitlabService svc,
@@ -146,7 +146,7 @@ public static class ProjectTools
         return JsonSerializer.Serialize(summary, JsonOpts.Default);
     }
 
-    [McpServerTool(Name = "list_commits"),
+    [McpServerTool(Name = "gl_list_commits"),
      Description("List recent commits for a branch or ref.")]
     public static Task<string> ListCommits(
         GitlabService svc,

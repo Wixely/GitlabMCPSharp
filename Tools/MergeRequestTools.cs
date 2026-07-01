@@ -9,7 +9,7 @@ namespace GitlabMCPSharp.Tools;
 [McpServerToolType]
 public static class MergeRequestTools
 {
-    [McpServerTool(Name = "list_merge_requests"),
+    [McpServerTool(Name = "gl_list_merge_requests"),
      Description("List merge requests in a project.")]
     public static async Task<string> ListMergeRequests(
         GitlabService svc,
@@ -46,7 +46,7 @@ public static class MergeRequestTools
         return JsonSerializer.Serialize(mrs, JsonOpts.Default);
     }
 
-    [McpServerTool(Name = "get_merge_request"),
+    [McpServerTool(Name = "gl_get_merge_request"),
      Description("Get a single merge request by IID.")]
     public static async Task<string> GetMergeRequest(
         GitlabService svc,

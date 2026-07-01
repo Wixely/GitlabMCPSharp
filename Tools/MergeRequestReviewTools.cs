@@ -24,7 +24,7 @@ public static class MergeRequestReviewTools
         return (svc.Client.GetMergeRequest(p.Id), p.Id);
     }
 
-    [McpServerTool(Name = "list_merge_request_changes"),
+    [McpServerTool(Name = "gl_list_merge_request_changes"),
      Description("List files changed in a merge request with per-file unified diff. Use this to read the code under review.")]
     public static async Task<string> ListChanges(
         GitlabService svc,
@@ -47,7 +47,7 @@ public static class MergeRequestReviewTools
         return JsonSerializer.Serialize(summary, JsonOpts.Default);
     }
 
-    [McpServerTool(Name = "get_merge_request_diff"),
+    [McpServerTool(Name = "gl_get_merge_request_diff"),
      Description("Return the concatenated unified diff for a merge request (joining each file's diff).")]
     public static async Task<string> GetDiff(
         GitlabService svc,
@@ -66,7 +66,7 @@ public static class MergeRequestReviewTools
         return JsonSerializer.Serialize(new { iid, diff = sb.ToString() }, JsonOpts.Default);
     }
 
-    [McpServerTool(Name = "get_merge_request_approval_state"),
+    [McpServerTool(Name = "gl_get_merge_request_approval_state"),
      Description("Return the approval state of a merge request: required approvals, who has approved, and whether the caller can approve.")]
     public static async Task<string> GetApprovalState(
         GitlabService svc,
@@ -92,7 +92,7 @@ public static class MergeRequestReviewTools
         return JsonSerializer.Serialize(summary, JsonOpts.Default);
     }
 
-    [McpServerTool(Name = "list_merge_request_discussions"),
+    [McpServerTool(Name = "gl_list_merge_request_discussions"),
      Description("List discussion threads on a merge request (each thread contains one or more notes).")]
     public static async Task<string> ListDiscussions(
         GitlabService svc,
@@ -124,7 +124,7 @@ public static class MergeRequestReviewTools
         return JsonSerializer.Serialize(discussions, JsonOpts.Default);
     }
 
-    [McpServerTool(Name = "list_merge_request_notes"),
+    [McpServerTool(Name = "gl_list_merge_request_notes"),
      Description("List notes (flat) on a merge request — the conversation/issue-style comments.")]
     public static async Task<string> ListNotes(
         GitlabService svc,
@@ -151,7 +151,7 @@ public static class MergeRequestReviewTools
         return JsonSerializer.Serialize(notes, JsonOpts.Default);
     }
 
-    [McpServerTool(Name = "list_merge_request_pipelines"),
+    [McpServerTool(Name = "gl_list_merge_request_pipelines"),
      Description("List CI pipelines attached to a merge request (latest head pipeline status etc.).")]
     public static async Task<string> ListPipelines(
         GitlabService svc,
@@ -175,7 +175,7 @@ public static class MergeRequestReviewTools
         return JsonSerializer.Serialize(pipelines, JsonOpts.Default);
     }
 
-    [McpServerTool(Name = "approve_merge_request"),
+    [McpServerTool(Name = "gl_approve_merge_request"),
      Description("Approve a merge request as the authenticated user. Requires write mode.")]
     public static async Task<string> Approve(
         GitlabService svc,
@@ -191,7 +191,7 @@ public static class MergeRequestReviewTools
         return JsonSerializer.Serialize(new { iid, approved = result.Approved, approvalsLeft = result.ApprovalsLeft }, JsonOpts.Default);
     }
 
-    [McpServerTool(Name = "unapprove_merge_request"),
+    [McpServerTool(Name = "gl_unapprove_merge_request"),
      Description("Remove the authenticated user's approval from a merge request. Requires write mode.")]
     public static async Task<string> Unapprove(
         GitlabService svc,
@@ -211,7 +211,7 @@ public static class MergeRequestReviewTools
         return JsonSerializer.Serialize(new { iid, unapproved = true }, JsonOpts.Default);
     }
 
-    [McpServerTool(Name = "add_merge_request_note"),
+    [McpServerTool(Name = "gl_add_merge_request_note"),
      Description("Add a conversation/issue-style note (comment) to a merge request. Requires write mode.")]
     public static async Task<string> AddNote(
         GitlabService svc,
@@ -227,7 +227,7 @@ public static class MergeRequestReviewTools
         return JsonSerializer.Serialize(new { created.Id, created.Body }, JsonOpts.Default);
     }
 
-    [McpServerTool(Name = "add_merge_request_discussion"),
+    [McpServerTool(Name = "gl_add_merge_request_discussion"),
      Description("Start a new discussion thread on a merge request. Requires write mode.")]
     public static async Task<string> AddDiscussion(
         GitlabService svc,
@@ -243,7 +243,7 @@ public static class MergeRequestReviewTools
         return JsonSerializer.Serialize(new { created.Id, notes = created.Notes?.Length ?? 0 }, JsonOpts.Default);
     }
 
-    [McpServerTool(Name = "close_merge_request"),
+    [McpServerTool(Name = "gl_close_merge_request"),
      Description("Close a merge request without merging. Requires write mode.")]
     public static async Task<string> Close(
         GitlabService svc,
@@ -258,7 +258,7 @@ public static class MergeRequestReviewTools
         return JsonSerializer.Serialize(new { mr.Iid, mr.State, mr.WebUrl }, JsonOpts.Default);
     }
 
-    [McpServerTool(Name = "reopen_merge_request"),
+    [McpServerTool(Name = "gl_reopen_merge_request"),
      Description("Reopen a previously closed merge request. Requires write mode.")]
     public static async Task<string> Reopen(
         GitlabService svc,

@@ -9,7 +9,7 @@ namespace GitlabMCPSharp.Tools;
 [McpServerToolType]
 public static class GroupTools
 {
-    [McpServerTool(Name = "get_group"),
+    [McpServerTool(Name = "gl_get_group"),
      Description("Get details for a single GitLab group by full path (e.g. 'parent/child').")]
     public static async Task<string> GetGroup(
         GitlabService svc,
@@ -21,7 +21,7 @@ public static class GroupTools
         return JsonSerializer.Serialize(SummariseGroup(g), JsonOpts.Default);
     }
 
-    [McpServerTool(Name = "list_group_projects"),
+    [McpServerTool(Name = "gl_list_group_projects"),
      Description("List projects belonging to a group.")]
     public static async Task<string> ListGroupProjects(
         GitlabService svc,
@@ -46,7 +46,7 @@ public static class GroupTools
         return JsonSerializer.Serialize(results, JsonOpts.Default);
     }
 
-    [McpServerTool(Name = "list_subgroups"),
+    [McpServerTool(Name = "gl_list_subgroups"),
      Description("List subgroups of a group.")]
     public static async Task<string> ListSubgroups(
         GitlabService svc,
@@ -64,7 +64,7 @@ public static class GroupTools
         return JsonSerializer.Serialize(results, JsonOpts.Default);
     }
 
-    [McpServerTool(Name = "search_groups"),
+    [McpServerTool(Name = "gl_search_groups"),
      Description("Search for groups by name across the GitLab instance.")]
     public static async Task<string> SearchGroups(
         GitlabService svc,

@@ -10,7 +10,7 @@ namespace GitlabMCPSharp.Tools;
 [McpServerToolType]
 public static class PipelineTools
 {
-    [McpServerTool(Name = "list_pipelines"),
+    [McpServerTool(Name = "gl_list_pipelines"),
      Description("List recent CI/CD pipelines for a project.")]
     public static async Task<string> ListPipelines(
         GitlabService svc,
@@ -47,7 +47,7 @@ public static class PipelineTools
         return JsonSerializer.Serialize(summary, JsonOpts.Default);
     }
 
-    [McpServerTool(Name = "get_pipeline"),
+    [McpServerTool(Name = "gl_get_pipeline"),
      Description("Get a single pipeline by Id.")]
     public static async Task<string> GetPipeline(
         GitlabService svc,
@@ -75,7 +75,7 @@ public static class PipelineTools
         return JsonSerializer.Serialize(summary, JsonOpts.Default);
     }
 
-    [McpServerTool(Name = "list_pipeline_jobs"),
+    [McpServerTool(Name = "gl_list_pipeline_jobs"),
      Description("List jobs in a pipeline.")]
     public static async Task<string> ListPipelineJobs(
         GitlabService svc,
@@ -103,7 +103,7 @@ public static class PipelineTools
         return JsonSerializer.Serialize(jobs, JsonOpts.Default);
     }
 
-    [McpServerTool(Name = "trigger_pipeline"),
+    [McpServerTool(Name = "gl_trigger_pipeline"),
      Description("Trigger a new pipeline on a given ref. Requires write mode.")]
     public static async Task<string> TriggerPipeline(
         GitlabService svc,

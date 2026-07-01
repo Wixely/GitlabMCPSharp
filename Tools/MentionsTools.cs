@@ -10,7 +10,7 @@ namespace GitlabMCPSharp.Tools;
 [McpServerToolType]
 public static class MentionsTools
 {
-    [McpServerTool(Name = "list_mentions_since"),
+    [McpServerTool(Name = "gl_list_mentions_since"),
      Description("Find recent issues, MRs and notes in a GitLab project where a given substring appears (typically a user/group mention such as \"@bot\" or any other phrase). Designed for polling-style consumers - returns a stable JSON shape with the match kind, the author, the body, the URL and timestamps.")]
     public static async Task<string> ListMentionsSince(
         GitlabService svc,

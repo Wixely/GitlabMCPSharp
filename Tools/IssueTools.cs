@@ -9,7 +9,7 @@ namespace GitlabMCPSharp.Tools;
 [McpServerToolType]
 public static class IssueTools
 {
-    [McpServerTool(Name = "list_issues"),
+    [McpServerTool(Name = "gl_list_issues"),
      Description("List issues in a project. Supports incremental polling via updatedSinceUtc.")]
     public static async Task<string> ListIssues(
         GitlabService svc,
@@ -47,7 +47,7 @@ public static class IssueTools
         return JsonSerializer.Serialize(issues, JsonOpts.Default);
     }
 
-    [McpServerTool(Name = "get_issue"),
+    [McpServerTool(Name = "gl_get_issue"),
      Description("Get a single issue including body.")]
     public static async Task<string> GetIssue(
         GitlabService svc,
@@ -61,7 +61,7 @@ public static class IssueTools
         return JsonSerializer.Serialize(SummariseIssue(issue, includeBody: true), JsonOpts.Default);
     }
 
-    [McpServerTool(Name = "create_issue"),
+    [McpServerTool(Name = "gl_create_issue"),
      Description("Create a new issue. Requires write mode.")]
     public static async Task<string> CreateIssue(
         GitlabService svc,

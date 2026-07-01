@@ -9,7 +9,7 @@ namespace GitlabMCPSharp.Tools;
 [McpServerToolType]
 public static class ReleaseTools
 {
-    [McpServerTool(Name = "list_releases"),
+    [McpServerTool(Name = "gl_list_releases"),
      Description("List releases for a project.")]
     public static async Task<string> ListReleases(
         GitlabService svc,
@@ -28,7 +28,7 @@ public static class ReleaseTools
         return JsonSerializer.Serialize(releases, JsonOpts.Default);
     }
 
-    [McpServerTool(Name = "get_release"),
+    [McpServerTool(Name = "gl_get_release"),
      Description("Get a single release by tag name.")]
     public static async Task<string> GetRelease(
         GitlabService svc,
