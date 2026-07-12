@@ -107,3 +107,13 @@ Full MR review surface (gated by `Gitlab:EnableMergeRequests`):
 - **Cancel**: `gl_close_merge_request`; `gl_reopen_merge_request` to undo.
 
 All decide/discuss/cancel tools require `Gitlab:ReadOnly=false`.
+
+## Pipelines / CI
+
+Pipeline tools (gated by `Gitlab:EnablePipelines`) let you diagnose a failing pipeline down to the individual job:
+
+- **Pipelines**: `gl_list_pipelines`, `gl_get_pipeline`.
+- **Per-job**: `gl_list_pipeline_jobs` lists each job with its stage, status, timing, `allow_failure` and `failure_reason` (pass `onlyFailed=true` to narrow to the jobs that broke); `gl_get_job_log` fetches a single job's trace (log), truncated to `maxBytes` (default 200 KB) to protect agent context.
+- **Trigger**: `gl_trigger_pipeline` (requires `Gitlab:ReadOnly=false`).
+
+Typical flow: `gl_list_pipelines` → `gl_list_pipeline_jobs pipelineId onlyFailed=true` → `gl_get_job_log jobId`. This mirrors the per-job log flow in the Azure DevOps and GitHub MCP servers.
