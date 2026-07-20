@@ -102,11 +102,15 @@ Read-only is **on by default**. To enable write tools (e.g. `gl_create_issue`, `
 Full MR review surface (gated by `Gitlab:EnableMergeRequests`):
 
 - **View**: `gl_list_merge_requests`, `gl_get_merge_request`, `gl_list_merge_request_changes` (per-file diff), `gl_get_merge_request_diff` (concatenated unified diff), `gl_get_merge_request_approval_state`, `gl_list_merge_request_discussions`, `gl_list_merge_request_notes`, `gl_list_merge_request_pipelines`.
+- **Create**: `gl_create_merge_request` (title, source → target branch, optional description, `draft`, `removeSourceBranch`).
 - **Decide**: `gl_approve_merge_request`, `gl_unapprove_merge_request` (per-user, via the raw API endpoint).
 - **Discuss**: `gl_add_merge_request_note` (conversation), `gl_add_merge_request_discussion` (new thread).
+- **Complete**: `gl_merge_merge_request` (optional `squash`, `removeSourceBranch`, merge commit message).
 - **Cancel**: `gl_close_merge_request`; `gl_reopen_merge_request` to undo.
 
-All decide/discuss/cancel tools require `Gitlab:ReadOnly=false`.
+All create/decide/discuss/complete/cancel tools require `Gitlab:ReadOnly=false`.
+
+The create → review → comment → approve → complete lifecycle is unified across the GitHub, Azure DevOps and GitLab MCP servers (see each server's README).
 
 ## Pipelines / CI
 

@@ -61,6 +61,40 @@ public static class MergeRequestTools
         return JsonSerializer.Serialize(SummariseMergeRequest(mr, includeBody: true), JsonOpts.Default);
     }
 
+    [McpServerTool(Name = "gl_create_merge_request"),
+     Description("Create a merge request from a source branch into a target branch. Requires write mode.")]
+    public static async Task<string> CreateMergeRequest(
+        GitlabService svc,
+        [Description("MR title.")] string title,
+        [Description("Source branch with the changes.")] string sourceBranch,
+        [Description("Target branch to merge into (e.g. main).")] string targetBranch,
+        [Description("Optional description / body markdown.")] string? description = null,
+        [Description("Open as a draft MR (prefixes the title with 'Draft:'). Default false.")] bool draft = false,
+        [Description("Remove the source branch when the MR is merged. Default false.")] bool removeSourceBranch = false,
+        [Description("Project namespaced path. Falls back to Gitlab:DefaultProject.")] string? project = null)
+    {
+        if (!svc.Options.EnableMergeRequests) throw new InvalidOperationException("Merge request tools are disabled.");
+        svc.EnsureWriteAllowed("create_merge_request");
+        if (string.IsNullOrWhiteSpace(title)) throw new ArgumentException("title is required.", nameof(title));
+        if (string.IsNullOrWhiteSpace(sourceBranch)) throw new ArgumentException("sourceBranch is required.", nameof(sourceBranch));
+        if (string.IsNullOrWhiteSpace(targetBranch)) throw new ArgumentException("targetBranch is required.", nameof(targetBranch));
+
+        var path = svc.ResolveProject(project);
+        var p = await svc.Client.Projects.GetByNamespacedPathAsync(path);
+        var mrClient = svc.Client.GetMergeRequest(p.Id);
+
+        var create = new MergeRequestCreate
+        {
+            Title = draft && !title.StartsWith("Draft:", StringComparison.OrdinalIgnoreCase) ? $"Draft: {title}" : title,
+            SourceBranch = sourceBranch,
+            TargetBranch = targetBranch,
+            Description = description,
+            RemoveSourceBranch = removeSourceBranch,
+        };
+        var mr = mrClient.Create(create);
+        return JsonSerializer.Serialize(SummariseMergeRequest(mr, includeBody: true), JsonOpts.Default);
+    }
+
     private static object SummariseMergeRequest(MergeRequest mr, bool includeBody = false) => new
     {
         mr.Iid,

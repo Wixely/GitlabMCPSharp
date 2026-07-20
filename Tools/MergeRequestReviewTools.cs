@@ -272,4 +272,31 @@ public static class MergeRequestReviewTools
         await Task.CompletedTask;
         return JsonSerializer.Serialize(new { mr.Iid, mr.State, mr.WebUrl }, JsonOpts.Default);
     }
+
+    [McpServerTool(Name = "gl_merge_merge_request"),
+     Description("Merge (accept/complete) a merge request. Optionally squash, remove the source branch, or set the merge commit message. Requires write mode.")]
+    public static async Task<string> Merge(
+        GitlabService svc,
+        [Description("Merge request IID.")] long iid,
+        [Description("Squash all commits into one when merging. Default false.")] bool squash = false,
+        [Description("Remove the source branch after merging. Default false.")] bool removeSourceBranch = false,
+        [Description("Optional custom merge commit message.")] string? mergeCommitMessage = null,
+        [Description("Expected head SHA; the merge is rejected if the MR head has moved. Optional safety check.")] string? sha = null,
+        [Description("Project namespaced path. Falls back to Gitlab:DefaultProject.")] string? project = null)
+    {
+        EnsureMr(svc);
+        svc.EnsureWriteAllowed("merge_merge_request");
+        var (client, _) = await ResolveAsync(svc, project);
+
+        var merge = new MergeRequestMerge
+        {
+            Squash = squash,
+            ShouldRemoveSourceBranch = removeSourceBranch,
+            MergeCommitMessage = mergeCommitMessage,
+            Sha = sha,
+        };
+        var mr = client.Accept(iid, merge);
+        await Task.CompletedTask;
+        return JsonSerializer.Serialize(new { mr.Iid, mr.State, mr.MergeCommitSha, mr.WebUrl }, JsonOpts.Default);
+    }
 }
