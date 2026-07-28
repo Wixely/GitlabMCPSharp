@@ -222,7 +222,7 @@ public static class MergeRequestReviewTools
         EnsureMr(svc);
         svc.EnsureWriteAllowed("add_merge_request_note");
         var (client, _) = await ResolveAsync(svc, project);
-        var created = client.Comments(iid).Add(new MergeRequestCommentCreate { Body = body });
+        var created = client.Comments(iid).Add(new MergeRequestCommentCreate { Body = TextUtil.NormalizeNewlines(body) });
         await Task.CompletedTask;
         return JsonSerializer.Serialize(new { created.Id, created.Body }, JsonOpts.Default);
     }
@@ -238,9 +238,123 @@ public static class MergeRequestReviewTools
         EnsureMr(svc);
         svc.EnsureWriteAllowed("add_merge_request_discussion");
         var (client, _) = await ResolveAsync(svc, project);
-        var created = client.Discussions(iid).Add(new MergeRequestDiscussionCreate { Body = body });
+        var created = client.Discussions(iid).Add(new MergeRequestDiscussionCreate { Body = TextUtil.NormalizeNewlines(body) });
         await Task.CompletedTask;
         return JsonSerializer.Serialize(new { created.Id, notes = created.Notes?.Length ?? 0 }, JsonOpts.Default);
+    }
+
+    [McpServerTool(Name = "gl_add_merge_request_review_comment"),
+     Description("Add an inline review comment anchored to a file and line in a merge request diff, as a new discussion thread. Set side to right (the new file, default) or left (the old file). The body supports markdown. Requires write mode.")]
+    public static async Task<string> AddReviewComment(
+        GitlabService svc,
+        [Description("Merge request IID.")] long iid,
+        [Description("File path inside the repository (e.g. src/Foo.cs).")] string path,
+        [Description("Comment body markdown.")] string body,
+        [Description("Line number in the file to anchor the comment to.")] int line,
+        [Description("Diff side: right (new file, default) or left (old file).")] string side = "right",
+        [Description("Project namespaced path. Falls back to Gitlab:DefaultProject.")] string? project = null,
+        CancellationToken ct = default)
+    {
+        EnsureMr(svc);
+        svc.EnsureWriteAllowed("add_merge_request_review_comment");
+        if (string.IsNullOrWhiteSpace(path)) throw new ArgumentException("path is required.", nameof(path));
+        if (line <= 0) throw new ArgumentException("line must be a positive line number.", nameof(line));
+
+        var normalizedSide = side.ToLowerInvariant();
+        if (normalizedSide is not ("left" or "right"))
+            throw new ArgumentException($"Unknown side '{side}'. Expected 'left' or 'right'.", nameof(side));
+
+        var (client, projectId) = await ResolveAsync(svc, project);
+        var mr = await client.GetByIidAsync(iid, new SingleMergeRequestQuery());
+        var refs = mr.DiffRefs
+            ?? throw new InvalidOperationException("Merge request has no diff refs yet (no commits to diff against).");
+
+        var position = new Dictionary<string, object?>
+        {
+            ["base_sha"] = refs.BaseSha,
+            ["head_sha"] = refs.HeadSha,
+            ["start_sha"] = refs.StartSha,
+            ["new_path"] = path,
+            ["old_path"] = path,
+            ["position_type"] = "text",
+        };
+        // right side comments on the new file (new_line); left side comments on the old file (old_line).
+        if (normalizedSide == "left") position["old_line"] = line;
+        else position["new_line"] = line;
+
+        var payload = new Dictionary<string, object?> { ["body"] = TextUtil.NormalizeNewlines(body), ["position"] = position };
+        using var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+        using var resp = await svc.Http.PostAsync($"projects/{projectId}/merge_requests/{iid}/discussions", content, ct);
+        var respBody = await resp.Content.ReadAsStringAsync(ct);
+        if (!resp.IsSuccessStatusCode)
+            throw new InvalidOperationException(
+                $"gl_add_merge_request_review_comment failed for MR !{iid}: HTTP {(int)resp.StatusCode} {resp.StatusCode}. " +
+                "Common causes: the line/path is not part of the MR diff, or the file was not changed on that side. " +
+                $"Response body: {respBody}");
+
+        using var doc = JsonDocument.Parse(respBody);
+        var discussionId = doc.RootElement.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
+        int? noteId = null;
+        if (doc.RootElement.TryGetProperty("notes", out var notes) && notes.ValueKind == JsonValueKind.Array && notes.GetArrayLength() > 0
+            && notes[0].TryGetProperty("id", out var noteIdEl))
+            noteId = noteIdEl.GetInt32();
+
+        return JsonSerializer.Serialize(new { discussionId, noteId, path, side = normalizedSide, line }, JsonOpts.Default);
+    }
+
+    [McpServerTool(Name = "gl_request_merge_request_reviewers"),
+     Description("Request one or more reviewers on a merge request — i.e. formally request a code review. Each reviewer may be a numeric user id or a username, which is resolved via the users API. Replaces the current reviewer set. Requires write mode.")]
+    public static async Task<string> RequestReviewers(
+        GitlabService svc,
+        [Description("Merge request IID.")] long iid,
+        [Description("Reviewers: numeric user ids or usernames.")] string[] reviewers,
+        [Description("Project namespaced path. Falls back to Gitlab:DefaultProject.")] string? project = null,
+        CancellationToken ct = default)
+    {
+        EnsureMr(svc);
+        svc.EnsureWriteAllowed("request_merge_request_reviewers");
+        if (reviewers is null || reviewers.Length == 0)
+            throw new ArgumentException("Provide at least one reviewer.", nameof(reviewers));
+
+        var (_, projectId) = await ResolveAsync(svc, project);
+
+        var ids = new List<long>();
+        foreach (var reviewer in reviewers)
+            ids.Add(await ResolveUserIdAsync(svc, reviewer, ct));
+
+        var payload = new Dictionary<string, object?> { ["reviewer_ids"] = ids };
+        using var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+        using var resp = await svc.Http.PutAsync($"projects/{projectId}/merge_requests/{iid}", content, ct);
+        var respBody = await resp.Content.ReadAsStringAsync(ct);
+        if (!resp.IsSuccessStatusCode)
+            throw new InvalidOperationException(
+                $"gl_request_merge_request_reviewers failed for MR !{iid}: HTTP {(int)resp.StatusCode} {resp.StatusCode}.\n{respBody}");
+
+        using var doc = JsonDocument.Parse(respBody);
+        var assigned = doc.RootElement.TryGetProperty("reviewers", out var rv) && rv.ValueKind == JsonValueKind.Array
+            ? rv.EnumerateArray().Select(u => u.TryGetProperty("username", out var un) ? un.GetString() : null).Where(u => u != null).ToArray()
+            : Array.Empty<string?>();
+        return JsonSerializer.Serialize(new { iid, reviewerIds = ids, reviewers = assigned }, JsonOpts.Default);
+    }
+
+    /// <summary>Resolve a numeric user id or username to a GitLab user id.</summary>
+    private static async Task<long> ResolveUserIdAsync(GitlabService svc, string reviewer, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(reviewer))
+            throw new ArgumentException("Reviewer value cannot be empty.");
+        if (long.TryParse(reviewer, out var numeric)) return numeric;
+
+        var name = reviewer.StartsWith('@') ? reviewer[1..] : reviewer;
+        using var resp = await svc.Http.GetAsync($"users?username={Uri.EscapeDataString(name)}", ct);
+        var body = await resp.Content.ReadAsStringAsync(ct);
+        if (!resp.IsSuccessStatusCode)
+            throw new InvalidOperationException($"Could not resolve reviewer '{reviewer}': users lookup returned {(int)resp.StatusCode}.\n{body}");
+
+        using var doc = JsonDocument.Parse(body);
+        if (doc.RootElement.ValueKind == JsonValueKind.Array && doc.RootElement.GetArrayLength() > 0
+            && doc.RootElement[0].TryGetProperty("id", out var idEl))
+            return idEl.GetInt64();
+        throw new InvalidOperationException($"No GitLab user matched username '{reviewer}'. Pass the numeric user id directly if needed.");
     }
 
     [McpServerTool(Name = "gl_close_merge_request"),
@@ -292,7 +406,7 @@ public static class MergeRequestReviewTools
         {
             Squash = squash,
             ShouldRemoveSourceBranch = removeSourceBranch,
-            MergeCommitMessage = mergeCommitMessage,
+            MergeCommitMessage = TextUtil.NormalizeNewlines(mergeCommitMessage),
             Sha = sha,
         };
         var mr = client.Accept(iid, merge);

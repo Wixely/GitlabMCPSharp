@@ -103,12 +103,15 @@ Full MR review surface (gated by `Gitlab:EnableMergeRequests`):
 
 - **View**: `gl_list_merge_requests`, `gl_get_merge_request`, `gl_list_merge_request_changes` (per-file diff), `gl_get_merge_request_diff` (concatenated unified diff), `gl_get_merge_request_approval_state`, `gl_list_merge_request_discussions`, `gl_list_merge_request_notes`, `gl_list_merge_request_pipelines`.
 - **Create**: `gl_create_merge_request` (title, source → target branch, optional description, `draft`, `removeSourceBranch`).
+- **Request review**: `gl_request_merge_request_reviewers` (usernames or numeric user ids; replaces the reviewer set).
 - **Decide**: `gl_approve_merge_request`, `gl_unapprove_merge_request` (per-user, via the raw API endpoint).
-- **Discuss**: `gl_add_merge_request_note` (conversation), `gl_add_merge_request_discussion` (new thread).
+- **Discuss**: `gl_add_merge_request_note` (conversation), `gl_add_merge_request_discussion` (new thread), `gl_add_merge_request_review_comment` (inline, anchored to a file + `line`/`side` in the diff; markdown supported).
 - **Complete**: `gl_merge_merge_request` (optional `squash`, `removeSourceBranch`, merge commit message).
 - **Cancel**: `gl_close_merge_request`; `gl_reopen_merge_request` to undo.
 
 All create/decide/discuss/complete/cancel tools require `Gitlab:ReadOnly=false`.
+
+> **Line breaks:** MR descriptions and comment bodies accept markdown. If a caller sends literal `\n` escape sequences instead of real line breaks (a common mistake) and the text has no real newlines, the server converts them to actual line breaks so the content renders correctly. Text that already contains real newlines is left untouched.
 
 The create → review → comment → approve → complete lifecycle is unified across the GitHub, Azure DevOps and GitLab MCP servers (see each server's README).
 

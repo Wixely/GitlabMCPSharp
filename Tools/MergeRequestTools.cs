@@ -88,7 +88,7 @@ public static class MergeRequestTools
             Title = draft && !title.StartsWith("Draft:", StringComparison.OrdinalIgnoreCase) ? $"Draft: {title}" : title,
             SourceBranch = sourceBranch,
             TargetBranch = targetBranch,
-            Description = description,
+            Description = TextUtil.NormalizeNewlines(description),
             RemoveSourceBranch = removeSourceBranch,
         };
         var mr = mrClient.Create(create);
