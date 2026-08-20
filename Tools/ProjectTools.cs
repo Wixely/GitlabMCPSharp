@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text;
 using System.Text.Json;
 using GitlabMCPSharp.Services;
 using ModelContextProtocol.Server;
@@ -18,6 +19,46 @@ public static class ProjectTools
         var path = svc.ResolveProject(project);
         var p = await svc.Client.Projects.GetByNamespacedPathAsync(path);
         return JsonSerializer.Serialize(SummariseProject(p), JsonOpts.Default);
+    }
+
+    [McpServerTool(Name = "gl_update_project_description"),
+     Description("Update a GitLab project's short description. Pass an empty string to clear it. Requires write mode and Maintainer or Owner access.")]
+    public static async Task<string> UpdateProjectDescription(
+        GitlabService svc,
+        [Description("New short project description. Pass an empty string to clear it.")] string description,
+        [Description("Project namespaced path. Falls back to Gitlab:DefaultProject.")] string? project = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(description);
+        svc.EnsureWriteAllowed("update_project_description");
+        var path = svc.ResolveProject(project);
+        var normalizedDescription = TextUtil.NormalizeNewlines(description);
+        var payload = new Dictionary<string, object?>
+        {
+            ["description"] = normalizedDescription,
+        };
+        using var content = new StringContent(
+            JsonSerializer.Serialize(payload),
+            Encoding.UTF8,
+            "application/json");
+        using var response = await svc.Http.PutAsync(
+            $"projects/{Uri.EscapeDataString(path)}",
+            content,
+            cancellationToken);
+        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException(
+                $"gl_update_project_description failed for project '{path}': " +
+                $"HTTP {(int)response.StatusCode} {response.StatusCode}. Response body: {responseBody}");
+        }
+
+        return JsonSerializer.Serialize(new
+        {
+            Project = path,
+            Description = normalizedDescription,
+            Cleared = normalizedDescription.Length == 0,
+        }, JsonOpts.Default);
     }
 
     [McpServerTool(Name = "gl_list_my_projects"),

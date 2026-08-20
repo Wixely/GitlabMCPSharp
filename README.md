@@ -97,6 +97,13 @@ Logs land in `<install-dir>\logs\gitlabmcp-*.log`.
 
 Read-only is **on by default**. To enable write tools (e.g. `gl_create_issue`, `gl_trigger_pipeline`), set `Gitlab:ReadOnly=false`.
 
+## Project metadata
+
+- `gl_get_project` returns project metadata, including its current description.
+- `gl_update_project_description` replaces the short project description and returns the project
+  path and applied value. Pass an empty string to clear it. The tool requires
+  `Gitlab:ReadOnly=false`, an API-scoped token, and Maintainer or Owner access to the project.
+
 ## Merge request review
 
 Full MR review surface (gated by `Gitlab:EnableMergeRequests`):
