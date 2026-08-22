@@ -115,9 +115,21 @@ Read-only is **on by default**. To enable write tools (e.g. `gl_create_issue`, `
   `reporter`, `security_manager`, `developer`, `maintainer`, `owner`. It is idempotent — an equal
   or higher existing share is left alone and reported as `changed: false`.
 
-Both require `Gitlab:ReadOnly=false`, and both respect `Gitlab:AllowedProjects` /
+- `gl_list_project_group_shares` reads back which groups a project is shared with, at what level,
+  when the share expires, and whether it is `direct` or `inherited` from an ancestor group. This is
+  the verification step: it reads the project's live state rather than trusting what a previous
+  write returned. It is **read-only and works with `Gitlab:ReadOnly=true`**, so you can audit
+  sharing without enabling writes at all.
+
+The two write tools require `Gitlab:ReadOnly=false`, and both respect `Gitlab:AllowedProjects` /
 `Gitlab:BlockedProjects` / `Gitlab:AllowedGroups`: a project you are not allowed to touch is also a
 project you cannot create, and a group you are not allowed to touch is one you cannot share with.
+
+`gl_list_project_group_shares` still honours `AllowedProjects` for the project itself, but it
+reports **every** group a project is shared with, including groups outside `AllowedGroups`. Hiding
+those would make it useless for the thing it exists to do — telling you the truth about who can
+reach a repository. The optional `group` argument is a filter over that answer, not a permission
+check, and the unfiltered total is always reported alongside it.
 
 > **Raising an existing share is deliberately not supported.** GitLab's API offers only
 > create (`POST /projects/:id/share`) and remove (`DELETE /projects/:id/share/:group_id`) — there

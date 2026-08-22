@@ -10,13 +10,14 @@ using ModelContextProtocol.Server;
 namespace GitlabMCPSharp.Tools;
 
 /// <summary>
-/// Creating projects and sharing them with groups — the operations an agent needs to stand up a
-/// new repository, as opposed to working inside one that already exists.
+/// Creating projects, sharing them with groups, and reading back who a project is shared with —
+/// the operations an agent needs to stand up a new repository, as opposed to working inside one
+/// that already exists.
 ///
-/// Both are deliberately conservative. Creation defaults to private and always sends visibility
-/// explicitly rather than inheriting whatever the instance default happens to be; sharing never
-/// removes or downgrades an existing share. Neither tool has a counterpart that deletes a project
-/// or revokes a share, so the worst case is an extra project or an extra group link.
+/// The write tools are deliberately conservative. Creation defaults to private and always sends
+/// visibility explicitly rather than inheriting whatever the instance default happens to be;
+/// sharing never removes or downgrades an existing share. Neither has a counterpart that deletes a
+/// project or revokes a share, so the worst case is an extra project or an extra group link.
 /// </summary>
 [McpServerToolType]
 public static class ProjectProvisioningTools
@@ -269,6 +270,109 @@ public static class ProjectProvisioningTools
             RequestedAccess = new { Level = requestedLevel, Name = DescribeAccessLevel(requestedLevel) },
             EffectiveAccess = new { Level = grantedLevel, Name = DescribeAccessLevel(grantedLevel) },
             ExpiresAt = link?["expires_at"]?.GetValue<string?>(),
+        }, JsonOpts.Default);
+    }
+
+    // ---------------------------------------------------------------- verify
+
+    [McpServerTool(Name = "gl_list_project_group_shares"),
+     Description("List the groups a project is shared with, and each group's access level. Read-only. Use this to verify a share actually landed — it reads the project's live state rather than trusting a previous write's response.")]
+    public static async Task<string> ListProjectGroupShares(
+        GitlabService svc,
+        [Description("Project ID or exact namespaced path, e.g. 'my-group/my-project'.")] string? project = null,
+        [Description("Only report this group, matched exactly on full path or numeric id. Omit to list every share.")] string? group = null,
+        CancellationToken cancellationToken = default)
+    {
+        const string Tool = "gl_list_project_group_shares";
+
+        var projectPath = svc.ResolveProject(project);
+        var projectObj = await TryGetProjectAsync(svc, projectPath, Tool, cancellationToken)
+            ?? throw new McpException(
+                $"{Tool}: project '{projectPath}' was not found, or the token cannot see it.");
+
+        // shared_with_groups is the only place the access level appears, so it is the source of
+        // truth here. invited_groups (below) knows about direct vs inherited but not the level.
+        var shares = (projectObj["shared_with_groups"] as JsonArray ?? [])
+            .OfType<JsonObject>()
+            .Select(s => new
+            {
+                GroupId = s["group_id"]?.GetValue<long>(),
+                Name = s["group_name"]?.GetValue<string>(),
+                FullPath = s["group_full_path"]?.GetValue<string>(),
+                AccessLevel = s["group_access_level"]?.GetValue<int>() ?? 0,
+                ExpiresAt = s["expires_at"]?.GetValue<string?>(),
+            })
+            .ToList();
+
+        // Enrichment, not a dependency: `relation` is the only way to tell a direct share from one
+        // inherited via an ancestor group, but the endpoint is comparatively recent. On an older
+        // self-managed GitLab this call fails and the relation is reported as unknown rather than
+        // failing the whole verification, which is the part that actually matters.
+        HashSet<long>? directGroupIds = null;
+        string? relationNote = null;
+        try
+        {
+            using var response = await svc.Http.GetAsync(
+                $"projects/{Uri.EscapeDataString(projectPath)}/invited_groups?relation[]=direct&per_page=100",
+                cancellationToken);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(cancellationToken);
+                directGroupIds = (JsonNode.Parse(body) as JsonArray ?? [])
+                    .OfType<JsonObject>()
+                    .Select(g => g["id"]?.GetValue<long>())
+                    .Where(id => id is not null)
+                    .Select(id => id!.Value)
+                    .ToHashSet();
+            }
+            else
+            {
+                relationNote = $"Could not determine direct vs inherited: GET invited_groups returned " +
+                               $"HTTP {(int)response.StatusCode}. This endpoint is not present on older GitLab versions.";
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            relationNote = $"Could not determine direct vs inherited: {ex.Message}";
+        }
+
+        var described = shares.Select(s => new
+        {
+            GroupId = s.GroupId,
+            Name = s.Name,
+            FullPath = s.FullPath,
+            AccessLevel = s.AccessLevel,
+            AccessLevelName = DescribeAccessLevel(s.AccessLevel),
+            ExpiresAt = s.ExpiresAt,
+            Relation = directGroupIds is null
+                ? "unknown"
+                : (s.GroupId is not null && directGroupIds.Contains(s.GroupId.Value) ? "direct" : "inherited"),
+        }).ToList();
+
+        // The filter is applied after collecting everything so the unfiltered total is still
+        // reported — "0 of 3 shares matched" is a materially different answer from "0 shares".
+        var wanted = group?.Trim().Trim('/');
+        var matched = string.IsNullOrWhiteSpace(wanted)
+            ? described
+            : described.Where(s =>
+                string.Equals(s.FullPath, wanted, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(s.GroupId?.ToString(), wanted, StringComparison.Ordinal)).ToList();
+
+        return JsonSerializer.Serialize(new
+        {
+            Project = new
+            {
+                Path = projectObj["path_with_namespace"]?.GetValue<string>() ?? projectPath,
+                Id = projectObj["id"]?.GetValue<long>(),
+                Visibility = projectObj["visibility"]?.GetValue<string>(),
+            },
+            GroupFilter = string.IsNullOrWhiteSpace(wanted) ? null : wanted,
+            Found = matched.Count > 0,
+            MatchedCount = matched.Count,
+            TotalShareCount = described.Count,
+            Shares = matched,
+            Note = relationNote,
         }, JsonOpts.Default);
     }
 
