@@ -104,6 +104,41 @@ Read-only is **on by default**. To enable write tools (e.g. `gl_create_issue`, `
   path and applied value. Pass an empty string to clear it. The tool requires
   `Gitlab:ReadOnly=false`, an API-scoped token, and Maintainer or Owner access to the project.
 
+## Creating and sharing projects
+
+- `gl_create_project` creates a project. **Visibility defaults to `private` and is always sent
+  explicitly**, so the instance default can never quietly make a new repository public. Give a
+  `namespace` to create inside a group (resolved to an exact full-path match — it will never fall
+  back to a different namespace); omit it for your personal namespace. If a project already exists
+  at that `namespace/path` it is returned unchanged, so retries are safe.
+- `gl_share_project_with_group` grants a group access to a project. Levels: `guest`, `planner`,
+  `reporter`, `security_manager`, `developer`, `maintainer`, `owner`. It is idempotent — an equal
+  or higher existing share is left alone and reported as `changed: false`.
+
+- `gl_list_project_group_shares` reads back which groups a project is shared with, at what level,
+  when the share expires, and whether it is `direct` or `inherited` from an ancestor group. This is
+  the verification step: it reads the project's live state rather than trusting what a previous
+  write returned. It is **read-only and works with `Gitlab:ReadOnly=true`**, so you can audit
+  sharing without enabling writes at all.
+
+The two write tools require `Gitlab:ReadOnly=false`, and both respect `Gitlab:AllowedProjects` /
+`Gitlab:BlockedProjects` / `Gitlab:AllowedGroups`: a project you are not allowed to touch is also a
+project you cannot create, and a group you are not allowed to touch is one you cannot share with.
+
+`gl_list_project_group_shares` still honours `AllowedProjects` for the project itself, but it
+reports **every** group a project is shared with, including groups outside `AllowedGroups`. Hiding
+those would make it useless for the thing it exists to do — telling you the truth about who can
+reach a repository. The optional `group` argument is a filter over that answer, not a permission
+check, and the unfiltered total is always reported alongside it.
+
+> **Raising an existing share is deliberately not supported.** GitLab's API offers only
+> create (`POST /projects/:id/share`) and remove (`DELETE /projects/:id/share/:group_id`) — there
+> is no in-place update — so increasing a group's level means deleting the share and re-adding it.
+> This server has no tool that removes a share, so it reports a conflict instead of silently
+> destroying and recreating the link. Change it in the GitLab UI.
+>
+> There is no project-deletion or group-unshare tool, by design.
+
 ## Merge request review
 
 Full MR review surface (gated by `Gitlab:EnableMergeRequests`):
