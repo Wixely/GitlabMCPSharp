@@ -104,6 +104,29 @@ Read-only is **on by default**. To enable write tools (e.g. `gl_create_issue`, `
   path and applied value. Pass an empty string to clear it. The tool requires
   `Gitlab:ReadOnly=false`, an API-scoped token, and Maintainer or Owner access to the project.
 
+## Creating and sharing projects
+
+- `gl_create_project` creates a project. **Visibility defaults to `private` and is always sent
+  explicitly**, so the instance default can never quietly make a new repository public. Give a
+  `namespace` to create inside a group (resolved to an exact full-path match — it will never fall
+  back to a different namespace); omit it for your personal namespace. If a project already exists
+  at that `namespace/path` it is returned unchanged, so retries are safe.
+- `gl_share_project_with_group` grants a group access to a project. Levels: `guest`, `planner`,
+  `reporter`, `security_manager`, `developer`, `maintainer`, `owner`. It is idempotent — an equal
+  or higher existing share is left alone and reported as `changed: false`.
+
+Both require `Gitlab:ReadOnly=false`, and both respect `Gitlab:AllowedProjects` /
+`Gitlab:BlockedProjects` / `Gitlab:AllowedGroups`: a project you are not allowed to touch is also a
+project you cannot create, and a group you are not allowed to touch is one you cannot share with.
+
+> **Raising an existing share is deliberately not supported.** GitLab's API offers only
+> create (`POST /projects/:id/share`) and remove (`DELETE /projects/:id/share/:group_id`) — there
+> is no in-place update — so increasing a group's level means deleting the share and re-adding it.
+> This server has no tool that removes a share, so it reports a conflict instead of silently
+> destroying and recreating the link. Change it in the GitLab UI.
+>
+> There is no project-deletion or group-unshare tool, by design.
+
 ## Merge request review
 
 Full MR review surface (gated by `Gitlab:EnableMergeRequests`):
