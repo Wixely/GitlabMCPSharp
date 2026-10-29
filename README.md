@@ -103,6 +103,34 @@ Read-only is **on by default**. To enable write tools (e.g. `gl_create_issue`, `
 - `gl_update_project_description` replaces the short project description and returns the project
   path and applied value. Pass an empty string to clear it. The tool requires
   `Gitlab:ReadOnly=false`, an API-scoped token, and Maintainer or Owner access to the project.
+- `gl_update_project_avatar` uploads or removes the project avatar (`PUT /projects/:id`).
+  - **Upload:** pass `image` as base64 or a data URI (`data:image/png;base64,...`), optionally with a
+    `fileName` (e.g. `logo.png`) and/or `mediaType` (e.g. `image/png`). The image is sent as
+    multipart form data. Server-side file paths are deliberately not accepted, so the tool cannot be
+    used to read files from the machine the MCP server runs on.
+  - **Remove:** pass `remove=true` and no `image`; the tool sends a blank `avatar` value, which
+    GitLab treats as "delete the avatar".
+  - Before anything is sent, the image is checked against GitLab's rules: supported formats are
+    png, jpg/jpeg, gif, bmp, tiff, ico and webp (detected from the bytes, and any `fileName`
+    extension or `mediaType` must agree with them), and the decoded size must be at most 200 KB
+    (204,800 bytes). GitLab recommends 192 x 192 pixels. SVG is not accepted by GitLab for avatars.
+  - After a successful write the project is read back and the live avatar URL is returned as `AvatarUrl` with
+    `Verified: true`. If the read-back fails or disagrees, the URL from the write response is
+    returned with `Verified: false` and a `Warning`.
+  - GitLab errors are reported with the HTTP status, a hint (for example, a 403 means the token
+    lacks the `api` scope or the user lacks Maintainer/Owner), and GitLab's own message.
+  - **Requires** `Gitlab:ReadOnly=false`, a token with the **`api`** scope (`read_api` is not
+    enough), and the **Maintainer or Owner** role on the project. It honours
+    `Gitlab:AllowedProjects` / `Gitlab:BlockedProjects` and falls back to `Gitlab:DefaultProject`.
+
+## Tests
+
+```sh
+dotnet test GitlabMCPSharp.sln
+```
+
+The tests in `tests/GitlabMCPSharp.Tests` use a fake HTTP handler in place of GitLab, so they never
+contact a real instance and need no token.
 
 ## Creating and sharing projects
 
