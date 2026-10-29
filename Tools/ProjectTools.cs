@@ -1,7 +1,11 @@
 using System.ComponentModel;
+using System.Net;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using GitlabMCPSharp.Services;
+using ModelContextProtocol;
 using ModelContextProtocol.Server;
 using NGitLab.Models;
 
@@ -59,6 +63,126 @@ public static class ProjectTools
             Description = normalizedDescription,
             Cleared = normalizedDescription.Length == 0,
         }, JsonOpts.Default);
+    }
+
+    [McpServerTool(Name = "gl_update_project_avatar"),
+     Description("Upload or remove a GitLab project's avatar. Pass the image inline as base64 or a data URI (e.g. 'data:image/png;base64,...'); server-side file paths are not accepted. " +
+                 "Supported formats: png, jpg/jpeg, gif, bmp, tiff, ico, webp; maximum 200 KB (192 x 192 pixels recommended). " +
+                 "Set remove=true (and omit image) to delete the avatar. Returns the resulting avatar_url, read back from GitLab. " +
+                 "Requires write mode, an 'api'-scoped token and Maintainer or Owner access.")]
+    public static async Task<string> UpdateProjectAvatar(
+        GitlabService svc,
+        [Description("Image content as base64, or a data URI such as 'data:image/png;base64,...'. Omit when remove=true.")] string? image = null,
+        [Description("Filename for the upload, e.g. 'logo.png'. Its extension must match the image. Defaults to 'avatar.<detected extension>'.")] string? fileName = null,
+        [Description("Optional media type, e.g. 'image/png'. Checked against the image content.")] string? mediaType = null,
+        [Description("Set true to remove the current avatar instead of uploading one.")] bool remove = false,
+        [Description("Project namespaced path. Falls back to Gitlab:DefaultProject.")] string? project = null,
+        CancellationToken cancellationToken = default)
+    {
+        const string Tool = "gl_update_project_avatar";
+
+        svc.EnsureWriteAllowed("update_project_avatar");
+        var path = svc.ResolveProject(project);
+
+        if (remove && !string.IsNullOrWhiteSpace(image))
+            throw new McpException($"{Tool}: pass either image or remove=true, not both.");
+        if (!remove && string.IsNullOrWhiteSpace(image))
+            throw new McpException($"{Tool}: no image supplied. Pass the image as base64 or a data URI, or set remove=true to delete the avatar.");
+
+        ProjectAvatar.Image? avatar = null;
+        HttpContent content;
+        if (remove)
+        {
+            // GitLab removes the avatar when the attribute is sent blank.
+            content = new FormUrlEncodedContent(new[] { new KeyValuePair<string, string>("avatar", string.Empty) });
+        }
+        else
+        {
+            avatar = ProjectAvatar.Parse(image!, fileName, mediaType, Tool);
+            var file = new ByteArrayContent(avatar.Bytes);
+            file.Headers.ContentType = new MediaTypeHeaderValue(avatar.Format.MediaType);
+            var multipart = new MultipartFormDataContent();
+            multipart.Add(file, "avatar", avatar.FileName);
+            content = multipart;
+        }
+
+        var endpoint = $"projects/{Uri.EscapeDataString(path)}";
+        string body;
+        using (content)
+        using (var response = await svc.Http.PutAsync(endpoint, content, cancellationToken))
+        {
+            body = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new McpException(ProjectProvisioningTools.DescribeFailure(Tool, response.StatusCode, body,
+                    remove ? $"removing the avatar of project '{path}'" : $"uploading an avatar to project '{path}'",
+                    response.StatusCode switch
+                    {
+                        HttpStatusCode.BadRequest => "GitLab rejected the avatar — usually an unsupported file type or a file over the 200 KB limit.",
+                        HttpStatusCode.Unauthorized => "The token is missing, expired or invalid.",
+                        HttpStatusCode.Forbidden => "The token needs the 'api' scope and Maintainer or Owner access to the project.",
+                        HttpStatusCode.NotFound => "The project was not found, or the token cannot see it.",
+                        HttpStatusCode.RequestEntityTooLarge => "The request was too large for GitLab or a proxy in front of it.",
+                        _ => null,
+                    }));
+            }
+        }
+
+        var written = ReadAvatarUrl(body);
+
+        // Read back rather than trusting the write response, so the caller sees the live state.
+        string? avatarUrl = written;
+        var verified = false;
+        string? warning = null;
+        try
+        {
+            using var readback = await svc.Http.GetAsync(endpoint, cancellationToken);
+            var readbackBody = await readback.Content.ReadAsStringAsync(cancellationToken);
+            if (readback.IsSuccessStatusCode)
+            {
+                avatarUrl = ReadAvatarUrl(readbackBody);
+                verified = remove ? string.IsNullOrEmpty(avatarUrl) : !string.IsNullOrEmpty(avatarUrl);
+                if (!verified)
+                {
+                    warning = remove
+                        ? "GitLab accepted the removal, but the project still reports an avatar_url."
+                        : "GitLab accepted the upload, but the project reports no avatar_url.";
+                }
+            }
+            else
+            {
+                warning = $"The update succeeded, but reading the project back failed (HTTP {(int)readback.StatusCode}); avatar_url is from the update response.";
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            warning = $"The update succeeded, but reading the project back failed ({ex.Message}); avatar_url is from the update response.";
+        }
+
+        return JsonSerializer.Serialize(new
+        {
+            Project = path,
+            Action = remove ? "Removed" : "Uploaded",
+            AvatarUrl = avatarUrl,
+            Verified = verified,
+            FileName = avatar?.FileName,
+            MediaType = avatar?.Format.MediaType,
+            SizeBytes = avatar?.Bytes.Length,
+            Warning = warning,
+        }, JsonOpts.Default);
+    }
+
+    private static string? ReadAvatarUrl(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body)) return null;
+        try
+        {
+            return (JsonNode.Parse(body) as JsonObject)?["avatar_url"]?.GetValue<string?>();
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException)
+        {
+            return null;
+        }
     }
 
     [McpServerTool(Name = "gl_list_my_projects"),

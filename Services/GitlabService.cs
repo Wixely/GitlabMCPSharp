@@ -11,10 +11,22 @@ public sealed class GitlabService
     private readonly Lazy<IGitLabClient> _client;
     private readonly Lazy<HttpClient> _http;
     private readonly GitlabOptions _options;
+    private readonly HttpMessageHandler? _httpHandler;
 
     public GitlabService(IOptions<GitlabOptions> options)
+        : this(options, httpHandler: null)
+    {
+    }
+
+    /// <summary>
+    /// Test seam: route <see cref="Http"/> through a caller-supplied handler so tool behaviour can
+    /// be exercised without a real GitLab instance. Internal, so dependency injection (which only
+    /// considers public constructors) always uses the public one.
+    /// </summary>
+    internal GitlabService(IOptions<GitlabOptions> options, HttpMessageHandler? httpHandler)
     {
         _options = options.Value;
+        _httpHandler = httpHandler;
         _client = new Lazy<IGitLabClient>(CreateClient);
         _http = new Lazy<HttpClient>(CreateHttpClient);
     }
@@ -119,7 +131,8 @@ public sealed class GitlabService
     private HttpClient CreateHttpClient()
     {
         var baseUrl = _options.ApiBaseUrl.EndsWith('/') ? _options.ApiBaseUrl : _options.ApiBaseUrl + "/";
-        var http = new HttpClient { BaseAddress = new Uri(new Uri(baseUrl), "api/v4/") };
+        var http = _httpHandler is null ? new HttpClient() : new HttpClient(_httpHandler, disposeHandler: false);
+        http.BaseAddress = new Uri(new Uri(baseUrl), "api/v4/");
         var token = !string.IsNullOrWhiteSpace(_options.OAuth2Token) ? _options.OAuth2Token : _options.PersonalAccessToken;
         if (!string.IsNullOrWhiteSpace(_options.OAuth2Token))
             http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);

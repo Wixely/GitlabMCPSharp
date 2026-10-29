@@ -534,7 +534,7 @@ public static class ProjectProvisioningTools
     /// Build an error that says what failed and what to do, including GitLab's own message but
     /// never the request headers or token.
     /// </summary>
-    private static string DescribeFailure(
+    internal static string DescribeFailure(
         string tool, HttpStatusCode status, string body, string what, string? hint)
     {
         var detail = ExtractMessage(body);
